@@ -135,8 +135,7 @@ public:
     inline std::vector<Phyatom*> getChildren(){return child;}
 
     // ———————————————————— setters ——————unsigned int id——————————————
-    inline void set_molecule_id(unsigned int mol_id){molecule_id = mol_id;
-    printf("Mol id ->%d\n\n",mol_id);}
+    inline void set_molecule_id(unsigned int mol_id){molecule_id = mol_id;}
 
     //—————————— utilidades extra (opcional) ——————————
     inline const std::string& get_symbol() const { return symbol; }
@@ -232,24 +231,28 @@ static inline void hook_force(
         const Phyatom* a1,
         const Phyatom* a2,
         double* Fx, double* Fy,
-        double Ke      = 1.0,     // usa k reducido por defecto
+        float  distance= 100,
+        double Ke      = 3,     // usa k reducido por defecto
         double scale   = 1e-3,    // px → Å, tu caso previo
         double eps2    = 1e-4     // softening
     )
     {
         int x1, y1, dummy;
-        int x2, y2, dummy2;
+        int x2, y2;
         a1->pos(&x1, &y1, &dummy);
-        a2->pos(&x2, &y2, &dummy2);
+        a2->pos(&x2, &y2, &dummy);
 
         // Vecor separación (en unidades físicas)
-        double dx = static_cast<double>(x2 - x1) * scale;
-        double dy = static_cast<double>(y2 - y1) * scale;
+        double dx = static_cast<double>(x2 - x1);
+        double dy = static_cast<double>(y2 - y1);
 
         double dist2    = dx*dx + dy*dy + eps2;
-        double inv_dist = 1.0 / std::sqrt(dist2);
+        double dist    = sqrt(dist2);
+        double inv_dist = 1.0 / dist;
 
-        double Fmag = Ke * a1->q() * a2->q() * inv_dist * inv_dist;
+        double elongation = (fabs(dist - distance) < eps2)? 0 : (dist - distance) ;
+
+        double Fmag = -Ke * elongation;
 
         *Fx = Fmag * dx * inv_dist;
         *Fy = Fmag * dy * inv_dist;
@@ -267,20 +270,25 @@ public:
     {
         std::size_t n = atoms.size();
         for(std::size_t i=0;i<n;i++){
-            for(std::size_t j=i+1;j<n;j++){
-
-                double Fx,Fy;
-                
+                double Fx,Fy;    
                 auto a1 = atoms[i];
-                auto a2 = atoms[j];
+                Phyatom* a2; 
+            for(std::size_t j=i+1;j<n;j++){
+                a2 = atoms[j];
 
-                if (a1->id_mol() == a2->id_mol() && a1->id_mol() != 0) {continue;}
+                if (a1->id_mol() == a2->id_mol() && a1->id_mol() != 0) {
+                    
+                    hook_force(a1, a2, &Fx, &Fy);
+                        a1->apply_forces(-Fx ,-Fy ,dt);
+                        a2->apply_forces(Fx ,Fy ,dt);
+                        continue;
+                }
 
                 coulomb_force(a1, a2, &Fx, &Fy, Ke, AMSTRONG);
-
-                a1->apply_forces(-Fx ,-Fy  ,dt);
-                a2->apply_forces(Fx ,Fy ,dt);
+                
             }
+            a1->apply_forces(-Fx ,-Fy  ,dt);
+            a2->apply_forces(Fx ,Fy ,dt);
         }
     }
 

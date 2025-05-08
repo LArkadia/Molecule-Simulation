@@ -20,6 +20,7 @@ int main(){
     Colors.emplace_back(255,255,255,255);   // 1    White
     Colors.emplace_back(0,0,255,255);       // 2    Blue
     Colors.emplace_back(255,0,0,255);       // 3
+    Colors.emplace_back(255,200,200);       // 4    pink
 
 
     ///////////////////VENTANA//////////////////
@@ -27,20 +28,25 @@ int main(){
 
 
 
-    phys::Phyatom Hidrogeno("H","Hidrogen",4e-7,1e-27,2,2);
-    phys::Phyatom Oxigeno("O","Oxigen",-4e-7,8e-27,8,3);
+    phys::Phyatom Hidrogeno("H","Hidrogen",4e-7,1e-27,4,2);
+    phys::Phyatom Oxigeno("O","Oxigen",-10e-7,8e-27,8,3);
+    phys::Phyatom Hidrogeno2("H2","Hidrogen",4e-7,1e-27,4,4);
+
     
     //Hidrogeno.apply_forces(+10,-10,1);
-    Oxigeno.apply_forces(-10, 10, 1);
+    //Oxigeno.apply_forces(-10, 10, 1);
     Oxigeno.link(&Hidrogeno, 0);
 
     phys::Phyngine Engine;
-    auto index = Engine.add(&Hidrogeno);
+    int index = Engine.add(&Hidrogeno);
     Engine.move_atom(index,int(WIDTH/2)-50,int(HEIGHT/2));
 
 
     index = Engine.add(&Oxigeno);
     Engine.move_atom(index, int(WIDTH/2) + 50, int(HEIGHT/2));
+
+    index = Engine.add(&Hidrogeno2);
+    Engine.move_atom(index,int(WIDTH/2)+150,int(HEIGHT/2));
 
     phys::Phymol mol("Aguant",&Oxigeno);
 
@@ -49,11 +55,11 @@ int main(){
 
 
     while (window.Handle_events()) {
-        Engine.tick(0.03);
+        Engine.tick(0.01);
         SDL_Delay(2); 
-        auto render_data = Engine.render_data ();    
+        auto render_data = Engine.render_data();    
         
-        //Draw_atoms(&window,&Colors,render_data);
+        Draw_atoms(&window,&Colors,render_data);
         Draw_molecules(&window,&Colors,Engine.get_molecules());
 
         window.Present_renderer(); 
