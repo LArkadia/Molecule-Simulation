@@ -1,0 +1,224 @@
+#pragma once
+#include "Atom.cpp"
+#include <vector>
+
+typedef struct{
+
+    int     x;
+    int     y;
+    int     r;
+    int     c;
+
+}Render_data;
+
+
+
+class Phyngine{
+private:
+
+//////////////////////////////////////////////////
+//////////////////Inertia class//////////////////
+////////////////////////////////////////////////
+
+    const double Ke = 8.9875517873681764e9;
+
+class Inertia{
+    private:
+        double xv,yv;   //Linear momentum
+        double av;      //Angular momentum
+        double lfx,lfy; //Last forces
+        double lix,liy;  //Last inertia
+    public:
+        Inertia();
+        void aply_forces(double Fx, double Fy, double T, double dt);
+};  
+
+//////////////////////////////////////////////////
+//////////////////Position class/////////////////
+////////////////////////////////////////////////
+
+class Position{
+    private: 
+        float x,y;  //linear position
+        float a;    //Angular orientation of the object
+    public:
+        Position();
+        Position(float x, float y);
+        void aply_inertia(Inertia* inertia,double last_ix,double last_iy,double ix,double iy, double dt);
+        void change_position_to(float x, float y);
+        void get_position(int* x_pos, int* y_pos,int* a_pos);
+};
+
+//////////////////////////////////////////////////
+///////////////////Phyatom class/////////////////
+////////////////////////////////////////////////
+
+class Phyatom{
+    private:
+        Atom*       atom;
+        Inertia*    inertia;
+        Position*   position;
+
+        double      mass;
+        double      electric_charge;
+        int         radius;
+    public:
+        Phyatom(Atom* atom); 
+
+        void    Move_to(float x, float y);
+        void    aply_forces(double fx, double fy, double dt);
+        void    get_position(int* x, int* y, int* a);
+        int     get_color();
+        double  get_charge();
+        int     get_id();
+};
+
+//////////////////////////////////////////////////////
+////////////Atributos de la clase Phyngine///////////
+////////////////////////////////////////////////////
+    std::vector<Phyatom> atoms;
+
+
+public:
+
+//////////////////////////////////////////////////////
+//////////////Métodos de la clase Phyngine///////////
+////////////////////////////////////////////////////
+    
+    void tick(double dt);
+    int Add(Atom* atom);
+    void Move_atom(int atom_index,float x, float y);
+    std::vector<Render_data> Get_render_data();
+
+};
+
+Phyngine::Phyatom::Phyatom(Atom* atom){
+    this->atom = atom;
+    inertia = new Inertia;
+    position = new Position;
+    atom->get_data(&mass, &electric_charge, &radius);
+}
+
+void Phyngine::tick(double dt){
+    for (auto atom1 : atoms) {
+        for (auto atom2 : atoms){
+            if (atom1.get_id() != atom2.get_id()) {
+                int x1,x2,a,y1,y2;
+                atom1.get_position(&x1, &y1, &a);
+                atom2.get_position(&x2,&y2, &a);
+                
+                int dx = x2 - x1;
+                int dy = y2 - y1;
+
+                float square_distance = dx * dx + dy * dy; 
+
+                double F = (Ke / square_distance) * (atom1.get_charge() * atom2.get_charge());
+
+                double Fx = F * (dx * dx)/square_distance;
+                double Fy = F * (dy * dy)/square_distance;
+
+                Fx /= 2;
+                Fy /= 2;
+
+
+                atom1.aply_forces(Fx,Fy,dt);
+                atom2.aply_forces(Fx,Fy,dt);
+
+            }
+        }
+    }
+}
+
+int Phyngine::Add(Atom* atom){
+    atoms.emplace_back(atom);
+    return atoms.size() - 1 ;
+}
+
+void Phyngine::Move_atom(int atom_index,float x, float y){
+    atoms.at(atom_index).Move_to(x, y);
+}
+
+void Phyngine::Phyatom::aply_forces(double fx, double fy,double dt){
+    inertia->aply_forces(fx, fy, 0, dt);
+}
+
+void Phyngine::Phyatom::Move_to(float x, float y){
+    position->change_position_to(x, y);
+}
+
+void Phyngine::Phyatom::get_position(int* x, int* y, int* a){
+    position->get_position(x, y, a);
+    *a = this->radius;
+}
+
+int Phyngine::Phyatom::get_color() { return atom->get_color();}
+double ::Phyngine::Phyatom::get_charge(){return this->electric_charge;}
+int Phyngine::Phyatom::get_id() {return atom->get_id();}
+
+std::vector<Render_data> Phyngine::Get_render_data(){
+    std::vector<Render_data> data;
+    int x,y,a,c;
+    for (auto atm :atoms) {
+        atm.get_position(&x,&y,&a);
+        c = atm.get_color();
+        data.emplace_back(Render_data{x,y,a,c});
+    }
+    return data;
+}
+
+Phyngine::Inertia::Inertia(){
+    xv = 0;
+    yv = 0;
+    av = 0;
+    lfx = 0;
+    lfy = 0;
+    lix = 0;
+    liy = 0;
+}
+
+void Phyngine::Inertia::aply_forces(double Fx, double Fy, double T, double dt){
+    double new_x_area = (dt/2)*(lfx + Fx);
+    double new_y_area = (dt/2)*(lfy + Fy);
+    lfx = Fx;
+    lfy = Fy;
+
+    lix = xv;
+    liy = yv;
+    
+    xv += new_x_area;
+    yv += new_y_area;
+
+    position.aply_inertia(this,lix,liy,xv,yv,dt);
+
+}
+
+Phyngine::Position::Position(){
+    x = 0;
+    y = 0;
+    a = 0;
+}
+
+void Phyngine::Position::aply_inertia(Inertia* inertia,double lix, double liy,double ix, double iy, double dt){
+    double new_x_area = (dt/2)*(lix+ix);
+    double new_y_area = (dt/2)*(liy+iy);
+
+    x += new_x_area;
+    y += new_y_area;
+
+}
+
+void Phyngine::Position::change_position_to(float x, float y){
+    this->x = x;
+    this->y = y;
+}
+
+void Phyngine::Position::get_position(int* x_pos, int* y_pos,int* a_pos){
+    *x_pos = x;
+    *y_pos = y;
+    *a_pos = a;
+}
+
+
+
+
+
